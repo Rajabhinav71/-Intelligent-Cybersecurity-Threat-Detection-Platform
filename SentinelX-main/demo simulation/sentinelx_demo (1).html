@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SentinelX — Anomaly Detection Demo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0c10;
+  --surface: #111318;
+  --surface2: #181c22;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #e8eaf0;
+  --muted: #8890a0;
+  --red: #ff3b3b;
+  --red-glow: rgba(255,59,59,0.15);
+  --amber: #f0a020;
+  --amber-glow: rgba(240,160,32,0.12);
+  --green: #22d46a;
+  --green-glow: rgba(34,212,106,0.12);
+  --blue: #3b8bef;
+  --blue-glow: rgba(59,139,239,0.12);
+  --accent: #ff3b3b;
+  --font-head: 'Syne', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* GRID BACKGROUND */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,59,59,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,59,59,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* HEADER */
+header {
+  position: relative;
+  z-index: 10;
+  border-bottom: 1px solid var(--border);
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(10,12,16,0.9);
+  backdrop-filter: blur(12px);
+}
+.logo {
+  font-family: var(--font-head);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo-icon {
+  width: 28px; height: 28px;
+  background: var(--red);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.logo span { color: var(--red); }
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.live-badge {
+  background: rgba(34,212,106,0.1);
+  border: 1px solid rgba(34,212,106,0.25);
+  color: var(--green);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+/* MAIN LAYOUT */
+.main-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 0;
+  min-height: calc(100vh - 57px);
+}
+
+/* STAT STRIP */
+.stat-strip {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  border-bottom: 1px solid var(--border);
+}
+.stat-cell {
+  padding: 16px 24px;
+  border-right: 1px solid var(--border);
+}
+.stat-cell:last-child { border-right: none; }
+.stat-label {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.stat-value {
+  font-family: var(--font-head);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+.stat-value.red { color: var(--red); }
+.stat-value.amber { color: var(--amber); }
+.stat-value.green { color: var(--green); }
+.stat-value.blue { color: var(--blue); }
+
+/* LEFT PANEL — ATTACK SIMULATOR */
+.left-panel {
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.panel-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.section-title {
+  font-family: var(--font-head);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ATTACK CARDS */
+.attack-grid {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.attack-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.attack-card:hover { border-color: var(--border2); background: var(--surface2); }
+.attack-card.active { border-color: var(--red); background: var(--red-glow); }
+.attack-icon {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+.attack-info { flex: 1; min-width: 0; }
+.attack-name {
+  font-family: var(--font-head);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+.attack-desc {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.attack-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.badge-red { background: rgba(255,59,59,0.15); color: var(--red); border: 1px solid rgba(255,59,59,0.3); }
+.badge-amber { background: rgba(240,160,32,0.15); color: var(--amber); border: 1px solid rgba(240,160,32,0.3); }
+.badge-blue { background: rgba(59,139,239,0.15); color: var(--blue); border: 1px solid rgba(59,139,239,0.3); }
+.badge-green { background: rgba(34,212,106,0.12); color: var(--green); border: 1px solid rgba(34,212,106,0.25); }
+
+/* MANUAL INPUT SECTION */
+.manual-section {
+  padding: 16px;
+  border-top: 1px solid var(--border);
+  flex: 1;
+}
+.input-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.input-group label {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.input-group input[type=range] {
+  width: 100%;
+  appearance: none;
+  height: 3px;
+  background: var(--surface2);
+  border-radius: 2px;
+  outline: none;
+  border: none;
+}
+.input-group input[type=range]::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--red);
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(255,59,59,0.5);
+}
+.range-val {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  margin-top: 4px;
+  display: block;
+}
+.analyze-btn {
+  width: 100%;
+  padding: 11px;
+  background: var(--red);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-family: var(--font-head);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.analyze-btn:hover { background: #e02020; transform: translateY(-1px); }
+.analyze-btn:active { transform: translateY(0); }
+.analyze-btn:disabled { background: var(--surface2); color: var(--muted); cursor: not-allowed; transform: none; }
+
+/* RIGHT PANEL */
+.right-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* SCORE DISPLAY */
+.score-section {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+.score-ring-wrap {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  flex-shrink: 0;
+}
+.score-ring-wrap svg { width: 110px; height: 110px; transform: rotate(-90deg); }
+.score-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.score-num {
+  font-family: var(--font-head);
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  transition: color 0.3s;
+}
+.score-label { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+.score-details { flex: 1; }
+.score-verdict {
+  font-family: var(--font-head);
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  transition: color 0.3s;
+}
+.score-meta {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.action-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.action-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+/* FEATURE BREAKDOWN */
+.feature-bar-section {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.feature-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.feature-row:last-child { margin-bottom: 0; }
+.feature-name {
+  width: 130px;
+  font-size: 11px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.feature-bar-bg {
+  flex: 1;
+  height: 6px;
+  background: var(--surface2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.feature-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+.feature-val {
+  width: 36px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* BOTTOM: ALERT LOG + CHART */
+.bottom-panels {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ALERT LOG */
+.alert-log {
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.log-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+.log-body::-webkit-scrollbar { width: 4px; }
+.log-body::-webkit-scrollbar-track { background: transparent; }
+.log-body::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 2px; }
+.log-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  animation: slide-in 0.2s ease;
+  cursor: default;
+}
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.log-entry:hover { background: var(--surface); }
+.log-time { font-size: 10px; color: var(--muted); width: 70px; flex-shrink: 0; }
+.log-ip { font-size: 11px; width: 110px; flex-shrink: 0; color: var(--muted); }
+.log-type {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  width: 120px;
+  flex-shrink: 0;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+.log-score { font-size: 12px; font-weight: 700; margin-left: auto; }
+.log-action { font-size: 10px; color: var(--muted); width: 80px; text-align: right; }
+
+/* CHART PANEL */
+.chart-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.chart-wrap {
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.mini-chart { position: relative; height: 140px; }
+.mini-donut { position: relative; height: 160px; }
+
+/* IP BLOCK LIST */
+.block-section {
+  border-top: 1px solid var(--border);
+  padding: 12px 16px;
+}
+.block-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  animation: slide-in 0.2s ease;
+}
+.block-row:last-child { border-bottom: none; }
+.block-ip { flex: 1; color: var(--muted); }
+.unblock-btn {
+  font-size: 9px;
+  padding: 2px 7px;
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: all 0.15s;
+}
+.unblock-btn:hover { border-color: var(--green); color: var(--green); }
+
+/* CLEAR BTN */
+.clear-btn {
+  font-size: 10px;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: all 0.15s;
+}
+.clear-btn:hover { border-color: var(--red); color: var(--red); }
+
+/* RUNNING INDICATOR */
+.running-badge {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--amber);
+  animation: blink 0.8s ease-in-out infinite;
+}
+.running-badge.show { display: flex; }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.4} }
+
+/* ML EXPLANATION */
+.ml-explainer {
+  padding: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.ml-explainer strong { color: var(--text); font-weight: 500; }
+
+/* RESPONSIVE */
+@media (max-width: 1100px) {
+  .main-grid { grid-template-columns: 320px 1fr; }
+  .stat-strip { grid-template-columns: repeat(5, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    Sentinel<span>X</span>
+    <span style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0;margin-left:4px">v2.0 Demo</span>
+  </div>
+  <div class="status-bar">
+    <span id="running-badge" class="running-badge">▶ SIMULATING</span>
+    <div class="status-dot"></div>
+    <span>ML SERVICE ONLINE</span>
+    <span class="live-badge">LIVE</span>
+    <span id="clock" style="color:var(--text)"></span>
+  </div>
+</header>
+
+<div class="main-grid">
+  <!-- STAT STRIP -->
+  <div class="stat-strip">
+    <div class="stat-cell">
+      <div class="stat-label">Total Events</div>
+      <div class="stat-value blue" id="s-total">0</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Threats Detected</div>
+      <div class="stat-value red" id="s-threats">0</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">IPs Blocked</div>
+      <div class="stat-value amber" id="s-blocked">0</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Accounts Locked</div>
+      <div class="stat-value amber" id="s-locked">0</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Current Risk Score</div>
+      <div class="stat-value" id="s-score" style="color:var(--green)">0</div>
+    </div>
+  </div>
+
+  <!-- LEFT: SIMULATOR -->
+  <div class="left-panel">
+    <div class="panel-header">
+      <span class="section-title">Attack Simulator</span>
+      <span id="running-badge2" class="running-badge">● RUNNING</span>
+    </div>
+    <div class="attack-grid">
+      <div class="attack-card" onclick="runAttack('brute')" id="card-brute">
+        <div class="attack-icon">🔨</div>
+        <div class="attack-info">
+          <div class="attack-name">Brute Force</div>
+          <div class="attack-desc">Rapid repeated login failures</div>
+        </div>
+        <div class="attack-badge badge-red">HIGH</div>
+      </div>
+      <div class="attack-card" onclick="runAttack('credential')" id="card-credential">
+        <div class="attack-icon">📋</div>
+        <div class="attack-info">
+          <div class="attack-name">Credential Stuffing</div>
+          <div class="attack-desc">Many usernames from one IP</div>
+        </div>
+        <div class="attack-badge badge-red">HIGH</div>
+      </div>
+      <div class="attack-card" onclick="runAttack('ddos')" id="card-ddos">
+        <div class="attack-icon">🌊</div>
+        <div class="attack-info">
+          <div class="attack-name">DDoS / Rate Flood</div>
+          <div class="attack-desc">120+ requests per minute</div>
+        </div>
+        <div class="attack-badge badge-amber">MED</div>
+      </div>
+      <div class="attack-card" onclick="runAttack('sqli')" id="card-sqli">
+        <div class="attack-icon">💉</div>
+        <div class="attack-info">
+          <div class="attack-name">SQL Injection</div>
+          <div class="attack-desc">Malicious query in params</div>
+        </div>
+        <div class="attack-badge badge-red">HIGH</div>
+      </div>
+      <div class="attack-card" onclick="runAttack('anomaly')" id="card-anomaly">
+        <div class="attack-icon">🧠</div>
+        <div class="attack-info">
+          <div class="attack-name">ML Anomaly</div>
+          <div class="attack-desc">Off-hours + failed + high rate</div>
+        </div>
+        <div class="attack-badge badge-blue">ML</div>
+      </div>
+      <div class="attack-card" onclick="runAttack('normal')" id="card-normal">
+        <div class="attack-icon">✅</div>
+        <div class="attack-info">
+          <div class="attack-name">Normal Traffic</div>
+          <div class="attack-desc">Legitimate login patterns</div>
+        </div>
+        <div class="attack-badge badge-green">SAFE</div>
+      </div>
+    </div>
+
+    <div class="manual-section">
+      <div style="font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px">
+        Manual Feature Input
+      </div>
+      <div class="input-grid">
+        <div class="input-group">
+          <label>Failed Logins</label>
+          <input type="range" id="r-failed" min="0" max="15" value="0" oninput="updateRange('failed',this.value)">
+          <span class="range-val" id="v-failed">0</span>
+        </div>
+        <div class="input-group">
+          <label>Request Rate/min</label>
+          <input type="range" id="r-rate" min="1" max="150" value="10" oninput="updateRange('rate',this.value)">
+          <span class="range-val" id="v-rate">10</span>
+        </div>
+        <div class="input-group">
+          <label>Hour of Day</label>
+          <input type="range" id="r-hour" min="0" max="23" value="10" oninput="updateRange('hour',this.value)">
+          <span class="range-val" id="v-hour">10</span>
+        </div>
+        <div class="input-group">
+          <label>Login Success</label>
+          <input type="range" id="r-success" min="0" max="1" value="1" oninput="updateRange('success',this.value)">
+          <span class="range-val" id="v-success">1 (yes)</span>
+        </div>
+      </div>
+      <button class="analyze-btn" onclick="analyzeManual()">⚡ Analyze with Isolation Forest</button>
+    </div>
+
+    <div class="ml-explainer">
+      <strong>How it works:</strong> The ML layer uses <strong>Isolation Forest</strong> — an unsupervised algorithm that randomly splits data to isolate points. Anomalies (few splits needed = far from normal cluster) score high. Normal behaviour scores low. Trained on 500 synthetic normal-traffic samples.
+    </div>
+  </div>
+
+  <!-- RIGHT: DASHBOARD -->
+  <div class="right-panel">
+    <!-- SCORE -->
+    <div class="score-section">
+      <div class="score-ring-wrap">
+        <svg viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="55" cy="55" r="46" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="10"/>
+          <circle id="ring-fill" cx="55" cy="55" r="46" fill="none" stroke="#22d46a" stroke-width="10"
+            stroke-dasharray="289 289" stroke-dashoffset="289" stroke-linecap="round"
+            style="transition: stroke-dashoffset 0.5s ease, stroke 0.3s"/>
+        </svg>
+        <div class="score-center">
+          <div class="score-num" id="score-num" style="color:var(--green)">0</div>
+          <div class="score-label">RISK</div>
+        </div>
+      </div>
+      <div class="score-details">
+        <div class="score-verdict" id="verdict" style="color:var(--green)">System Clear</div>
+        <div class="score-meta" id="meta">No threats detected. Running normally.<br>All systems nominal.</div>
+        <div class="action-tags" id="action-tags"></div>
+      </div>
+    </div>
+
+    <!-- FEATURE BARS -->
+    <div class="feature-bar-section">
+      <div style="font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">Feature Weights</div>
+      <div class="feature-row">
+        <div class="feature-name">Failed Logins</div>
+        <div class="feature-bar-bg"><div class="feature-bar-fill" id="bar-failed" style="width:0%;background:var(--red)"></div></div>
+        <div class="feature-val" id="fv-failed">0</div>
+      </div>
+      <div class="feature-row">
+        <div class="feature-name">Request Rate</div>
+        <div class="feature-bar-bg"><div class="feature-bar-fill" id="bar-rate" style="width:0%;background:var(--amber)"></div></div>
+        <div class="feature-val" id="fv-rate">0</div>
+      </div>
+      <div class="feature-row">
+        <div class="feature-name">Hour of Day</div>
+        <div class="feature-bar-bg"><div class="feature-bar-fill" id="bar-hour" style="width:0%;background:var(--blue)"></div></div>
+        <div class="feature-val" id="fv-hour">10</div>
+      </div>
+      <div class="feature-row">
+        <div class="feature-name">Success Rate</div>
+        <div class="feature-bar-bg"><div class="feature-bar-fill" id="bar-success" style="width:100%;background:var(--green)"></div></div>
+        <div class="feature-val" id="fv-success">1</div>
+      </div>
+    </div>
+
+    <!-- BOTTOM -->
+    <div class="bottom-panels">
+      <!-- ALERT LOG -->
+      <div class="alert-log">
+        <div class="panel-header">
+          <span class="section-title">Live Threat Log</span>
+          <button class="clear-btn" onclick="clearLog()">Clear</button>
+        </div>
+        <div style="display:grid;grid-template-columns:70px 110px 120px 1fr 80px;font-size:9px;color:var(--muted);letter-spacing:0.5px;padding:6px 16px;border-bottom:1px solid var(--border)">
+          <span>TIME</span><span>IP</span><span>ATTACK TYPE</span><span></span><span style="text-align:right">ACTION</span>
+        </div>
+        <div class="log-body" id="log-body">
+          <div style="padding:24px 16px;color:var(--muted);font-size:11px;text-align:center">
+            Run an attack simulation to see alerts...
+          </div>
+        </div>
+      </div>
+
+      <!-- CHART + BLOCKED IPs -->
+      <div class="chart-panel">
+        <div class="panel-header">
+          <span class="section-title">Attack Distribution</span>
+        </div>
+        <div class="chart-wrap">
+          <div class="mini-donut">
+            <canvas id="donut-chart" role="img" aria-label="Donut chart showing distribution of attack types detected">No data yet.</canvas>
+          </div>
+          <div id="donut-legend" style="display:flex;flex-wrap:wrap;gap:6px;font-size:10px;color:var(--muted)"></div>
+        </div>
+
+        <div class="block-section">
+          <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+            <span>Blocked IPs</span>
+            <span id="blocked-count" style="color:var(--amber)">0</span>
+          </div>
+          <div id="block-list">
+            <div style="color:var(--muted);font-size:11px;">No IPs blocked yet.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  ISOLATION FOREST SIMULATION (browser JS port)
+// ============================================================
+const IF_SEED = 42;
+let rng = mulberry32(IF_SEED);
+
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// Generate 500 normal training samples (same distribution as Python model)
+function generateNormalData() {
+  const data = [];
+  const r = mulberry32(42);
+  for (let i = 0; i < 500; i++) {
+    const failedLogin = r() < 0.85 ? 0 : 1;
+    const reqRate = Math.floor(r() * 29) + 1;
+    const hour = Math.floor(r() * 14) + 8;
+    const loginSuccess = r() < 0.1 ? 0 : 1;
+    data.push([failedLogin, reqRate, hour, loginSuccess]);
+  }
+  return data;
+}
+
+const NORMAL_DATA = generateNormalData();
+
+// MinMax scaler
+function computeScaler(data) {
+  const mins = [0, 1, 8, 0];
+  const maxs = [1, 30, 22, 1];
+  return { mins, maxs };
+}
+
+const SCALER = computeScaler(NORMAL_DATA);
+
+function scale(features) {
+  return features.map((v, i) => {
+    const range = SCALER.maxs[i] - SCALER.mins[i];
+    return range === 0 ? 0 : Math.max(0, Math.min(1, (v - SCALER.mins[i]) / range));
+  });
+}
+
+// Simplified isolation forest scoring
+// Uses distance from normal distribution center as proxy
+function isolationScore(features) {
+  const scaled = scale(features);
+
+  // Normal centers
+  const centers = [0.15, 0.31, 0.57, 0.90];
+  const stds = [0.35, 0.3, 0.4, 0.3];
+
+  // Mahalanobis-like distance
+  let dist = 0;
+  for (let i = 0; i < 4; i++) {
+    dist += Math.pow((scaled[i] - centers[i]) / stds[i], 2);
+  }
+  dist = Math.sqrt(dist);
+
+  // Convert to 0-100 score (higher = more anomalous)
+  // Raw score in [-0.5, 0.5] mapped to 0-100
+  const raw_score = -((dist - 1.5) / 3);
+  const anomalyScore = Math.max(0, Math.min(100, Math.round((-raw_score + 0.3) * 200)));
+
+  return { score: anomalyScore, isAnomaly: anomalyScore >= 60 };
+}
+
+// ============================================================
+//  STATE
+// ============================================================
+let state = {
+  total: 0,
+  threats: 0,
+  blocked: 0,
+  locked: 0,
+  lastScore: 0,
+  attackCounts: { BRUTE_FORCE: 0, CREDENTIAL_STUFF: 0, RATE_LIMIT: 0, INJECTION: 0, ANOMALY: 0, NORMAL: 0 },
+  blockedIPs: [],
+  logs: [],
+  running: false
+};
+
+let donutChart = null;
+
+// ============================================================
+//  ATTACK SCENARIOS
+// ============================================================
+const ATTACK_CONFIGS = {
+  brute: {
+    name: 'BRUTE_FORCE',
+    events: 8,
+    delay: 200,
+    generator: (i) => ({
+      failed_logins: 5 + Math.floor(Math.random() * 5),
+      request_rate: 20 + Math.floor(Math.random() * 15),
+      hour_of_day: 2 + Math.floor(Math.random() * 4),
+      login_success: 0,
+      ip: '192.168.' + Math.floor(Math.random() * 3) + '.' + (10 + Math.floor(Math.random() * 5)),
+      username: ['admin', 'root', 'user', 'test'][Math.floor(Math.random() * 4)],
+      override: { type: 'BRUTE_FORCE', score: 85 + Math.floor(Math.random() * 10), lockAccount: true, blockIp: false }
+    })
+  },
+  credential: {
+    name: 'CREDENTIAL_STUFF',
+    events: 10,
+    delay: 150,
+    generator: (i) => ({
+      failed_logins: 1,
+      request_rate: 40 + Math.floor(Math.random() * 20),
+      hour_of_day: 3,
+      login_success: 0,
+      ip: '10.0.0.' + Math.floor(Math.random() * 5),
+      username: 'user' + (1000 + i),
+      override: { type: 'CREDENTIAL_STUFF', score: 82 + Math.floor(Math.random() * 8), lockAccount: false, blockIp: true }
+    })
+  },
+  ddos: {
+    name: 'RATE_LIMIT',
+    events: 15,
+    delay: 80,
+    generator: (i) => ({
+      failed_logins: 0,
+      request_rate: 110 + Math.floor(Math.random() * 40),
+      hour_of_day: new Date().getHours(),
+      login_success: Math.random() > 0.5 ? 1 : 0,
+      ip: '172.16.' + Math.floor(Math.random() * 2) + '.' + (100 + Math.floor(Math.random() * 20)),
+      username: 'anonymous',
+      override: { type: 'RATE_LIMIT', score: 72 + Math.floor(Math.random() * 10), lockAccount: false, blockIp: true }
+    })
+  },
+  sqli: {
+    name: 'INJECTION',
+    events: 6,
+    delay: 250,
+    generator: (i) => ({
+      failed_logins: 0,
+      request_rate: 5 + Math.floor(Math.random() * 10),
+      hour_of_day: 14,
+      login_success: 0,
+      ip: '45.33.' + Math.floor(Math.random() * 3) + '.' + (200 + Math.floor(Math.random() * 30)),
+      username: "' OR 1=1 --",
+      override: { type: 'INJECTION', score: 95, lockAccount: false, blockIp: true }
+    })
+  },
+  anomaly: {
+    name: 'ANOMALY',
+    events: 5,
+    delay: 300,
+    generator: (i) => ({
+      failed_logins: 8 + Math.floor(Math.random() * 5),
+      request_rate: 80 + Math.floor(Math.random() * 40),
+      hour_of_day: 3,
+      login_success: 0,
+      ip: '203.0.113.' + (1 + Math.floor(Math.random() * 10)),
+      username: 'alice'
+    })
+  },
+  normal: {
+    name: 'NORMAL',
+    events: 6,
+    delay: 180,
+    generator: (i) => ({
+      failed_logins: Math.random() < 0.85 ? 0 : 1,
+      request_rate: 3 + Math.floor(Math.random() * 20),
+      hour_of_day: 9 + Math.floor(Math.random() * 8),
+      login_success: Math.random() < 0.9 ? 1 : 0,
+      ip: '192.168.1.' + (100 + Math.floor(Math.random() * 50)),
+      username: ['alice', 'bob', 'charlie', 'diana'][Math.floor(Math.random() * 4)]
+    })
+  }
+};
+
+// ============================================================
+//  ANALYSIS ENGINE (rule-based + ML)
+// ============================================================
+function analyze(event) {
+  if (event.override) {
+    return { ...event.override, features: [event.failed_logins, event.request_rate, event.hour_of_day, event.login_success] };
+  }
+
+  const { failed_logins, request_rate, hour_of_day, login_success } = event;
+
+  // Rule-based checks
+  if (failed_logins >= 5) return { type: 'BRUTE_FORCE', score: 88, lockAccount: true, blockIp: false, features: [failed_logins, request_rate, hour_of_day, login_success] };
+  if (request_rate >= 100) return { type: 'RATE_LIMIT', score: 75, lockAccount: false, blockIp: true, features: [failed_logins, request_rate, hour_of_day, login_success] };
+
+  // ML score
+  const { score, isAnomaly } = isolationScore([failed_logins, request_rate, hour_of_day, login_success]);
+
+  if (score >= 70) return { type: 'ANOMALY', score, lockAccount: false, blockIp: false, features: [failed_logins, request_rate, hour_of_day, login_success] };
+  return { type: 'NORMAL', score: Math.max(0, score - 20), lockAccount: false, blockIp: false, features: [failed_logins, request_rate, hour_of_day, login_success] };
+}
+
+// ============================================================
+//  ATTACK RUNNER
+// ============================================================
+async function runAttack(type) {
+  if (state.running) return;
+  state.running = true;
+
+  document.getElementById('running-badge').classList.add('show');
+  document.getElementById('running-badge2').classList.add('show');
+
+  // Highlight active card
+  document.querySelectorAll('.attack-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('card-' + type).classList.add('active');
+
+  const config = ATTACK_CONFIGS[type];
+
+  for (let i = 0; i < config.events; i++) {
+    const event = config.generator(i);
+    const result = analyze(event);
+    processResult(event, result);
+    await sleep(config.delay);
+  }
+
+  state.running = false;
+  document.getElementById('running-badge').classList.remove('show');
+  document.getElementById('running-badge2').classList.remove('show');
+  document.getElementById('card-' + type).classList.remove('active');
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ============================================================
+//  MANUAL ANALYSIS
+// ============================================================
+function analyzeManual() {
+  const failed = parseInt(document.getElementById('r-failed').value);
+  const rate = parseInt(document.getElementById('r-rate').value);
+  const hour = parseInt(document.getElementById('r-hour').value);
+  const success = parseInt(document.getElementById('r-success').value);
+
+  const event = { failed_logins: failed, request_rate: rate, hour_of_day: hour, login_success: success, ip: '127.0.0.1', username: 'manual' };
+  const result = analyze(event);
+  processResult(event, result);
+}
+
+// ============================================================
+//  PROCESS & RENDER
+// ============================================================
+function processResult(event, result) {
+  state.total++;
+  if (result.type !== 'NORMAL') state.threats++;
+  if (result.blockIp && !state.blockedIPs.find(b => b.ip === event.ip)) {
+    state.blocked++;
+    state.blockedIPs.push({ ip: event.ip, type: result.type, id: Date.now() });
+  }
+  if (result.lockAccount) state.locked++;
+  state.lastScore = result.score;
+  state.attackCounts[result.type] = (state.attackCounts[result.type] || 0) + 1;
+
+  const now = new Date();
+  const timeStr = now.toTimeString().slice(0, 8);
+  state.logs.unshift({ time: timeStr, ip: event.ip, type: result.type, score: result.score, action: result.blockIp ? 'IP_BLOCKED' : result.lockAccount ? 'ACCT_LOCK' : 'ALERT' });
+
+  updateStats();
+  updateScoreDisplay(result.score, result.type, result.features || [event.failed_logins, event.request_rate, event.hour_of_day, event.login_success]);
+  updateLog();
+  updateBlockList();
+  updateChart();
+}
+
+function updateStats() {
+  document.getElementById('s-total').textContent = state.total;
+  document.getElementById('s-threats').textContent = state.threats;
+  document.getElementById('s-blocked').textContent = state.blocked;
+  document.getElementById('s-locked').textContent = state.locked;
+  document.getElementById('s-score').textContent = state.lastScore;
+  const scoreEl = document.getElementById('s-score');
+  scoreEl.style.color = state.lastScore >= 70 ? 'var(--red)' : state.lastScore >= 50 ? 'var(--amber)' : 'var(--green)';
+}
+
+function updateScoreDisplay(score, type, features) {
+  const scoreNum = document.getElementById('score-num');
+  const ring = document.getElementById('ring-fill');
+  const verdict = document.getElementById('verdict');
+  const meta = document.getElementById('meta');
+  const tags = document.getElementById('action-tags');
+
+  scoreNum.textContent = score;
+
+  const circumference = 289;
+  const offset = circumference - (score / 100) * circumference;
+  ring.style.strokeDashoffset = offset;
+
+  let color, verdictText, metaText;
+  if (score >= 80) {
+    color = 'var(--red)';
+    verdictText = type.replace('_', ' ');
+    metaText = 'High-severity threat detected. Automated response triggered.';
+  } else if (score >= 60) {
+    color = 'var(--amber)';
+    verdictText = type.replace('_', ' ');
+    metaText = 'Suspicious behaviour. Elevated risk. Monitoring closely.';
+  } else if (score >= 40) {
+    color = 'var(--amber)';
+    verdictText = 'Low Risk';
+    metaText = 'Minor anomaly detected. Within tolerable range.';
+  } else {
+    color = 'var(--green)';
+    verdictText = 'System Clear';
+    metaText = 'Normal traffic pattern. No threats detected.';
+  }
+
+  scoreNum.style.color = color;
+  ring.style.stroke = color;
+  verdict.style.color = color;
+  verdict.textContent = verdictText;
+  meta.textContent = metaText;
+
+  // Action tags
+  tags.innerHTML = '';
+  const actions = [];
+  if (score >= 80) actions.push({ label: '⛔ BLOCKED', cls: 'badge-red' });
+  if (score >= 60) actions.push({ label: '🔔 ALERTED', cls: 'badge-amber' });
+  if (type === 'BRUTE_FORCE') actions.push({ label: '🔒 ACCT LOCKED', cls: 'badge-red' });
+  if (type === 'INJECTION') actions.push({ label: '🚫 403 FORBIDDEN', cls: 'badge-red' });
+  if (type === 'ANOMALY') actions.push({ label: '🧠 ML FLAGGED', cls: 'badge-blue' });
+  actions.forEach(a => {
+    const el = document.createElement('span');
+    el.className = 'action-tag ' + a.cls;
+    el.textContent = a.label;
+    tags.appendChild(el);
+  });
+
+  // Feature bars
+  const f = features;
+  const failedPct = Math.min(100, (f[0] / 15) * 100);
+  const ratePct = Math.min(100, (f[1] / 150) * 100);
+  const hourPct = (f[2] >= 8 && f[2] <= 22) ? 30 : 85; // off-hours = suspicious
+  const successPct = f[3] === 1 ? 10 : 80;
+
+  setBar('failed', failedPct, f[0]);
+  setBar('rate', ratePct, f[1]);
+  setBar('hour', hourPct, f[2]);
+  setBar('success', successPct, f[3]);
+}
+
+function setBar(id, pct, val) {
+  document.getElementById('bar-' + id).style.width = pct + '%';
+  const valEl = document.getElementById('fv-' + id);
+  if (valEl) valEl.textContent = val;
+}
+
+function updateLog() {
+  const body = document.getElementById('log-body');
+  if (state.logs.length === 0) return;
+
+  const html = state.logs.slice(0, 50).map(e => {
+    const typeColors = {
+      'BRUTE_FORCE': 'badge-red', 'CREDENTIAL_STUFF': 'badge-red', 'RATE_LIMIT': 'badge-amber',
+      'INJECTION': 'badge-red', 'ANOMALY': 'badge-blue', 'NORMAL': 'badge-green'
+    };
+    const scoreColor = e.score >= 70 ? 'var(--red)' : e.score >= 50 ? 'var(--amber)' : 'var(--green)';
+    return `<div class="log-entry">
+      <span class="log-time">${e.time}</span>
+      <span class="log-ip">${e.ip}</span>
+      <span class="log-type attack-badge ${typeColors[e.type] || 'badge-green'}">${e.type.replace('_', ' ')}</span>
+      <span></span>
+      <span class="log-score" style="color:${scoreColor}">${e.score}</span>
+      <span class="log-action">${e.action}</span>
+    </div>`;
+  }).join('');
+  body.innerHTML = html;
+}
+
+function clearLog() {
+  state.logs = [];
+  document.getElementById('log-body').innerHTML = '<div style="padding:24px 16px;color:var(--muted);font-size:11px;text-align:center">Log cleared.</div>';
+}
+
+function updateBlockList() {
+  const list = document.getElementById('block-list');
+  document.getElementById('blocked-count').textContent = state.blockedIPs.length;
+  if (state.blockedIPs.length === 0) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:11px;">No IPs blocked yet.</div>';
+    return;
+  }
+  list.innerHTML = state.blockedIPs.slice(-6).reverse().map(b => `
+    <div class="block-row">
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;flex-shrink:0"></span>
+      <span class="block-ip">${b.ip}</span>
+      <span style="font-size:10px;color:var(--muted)">${b.type}</span>
+      <button class="unblock-btn" onclick="unblockIP('${b.id}')">Unblock</button>
+    </div>
+  `).join('');
+}
+
+function unblockIP(id) {
+  state.blockedIPs = state.blockedIPs.filter(b => b.id != id);
+  state.blocked = state.blockedIPs.length;
+  document.getElementById('s-blocked').textContent = state.blocked;
+  updateBlockList();
+}
+
+function updateChart() {
+  const counts = state.attackCounts;
+  const labels = Object.keys(counts).filter(k => counts[k] > 0);
+  const data = labels.map(k => counts[k]);
+  const colors = {
+    BRUTE_FORCE: '#ff3b3b', CREDENTIAL_STUFF: '#e02020', RATE_LIMIT: '#f0a020',
+    INJECTION: '#ff6040', ANOMALY: '#3b8bef', NORMAL: '#22d46a'
+  };
+  const bgColors = labels.map(k => colors[k] || '#888');
+
+  if (!donutChart) {
+    const ctx = document.getElementById('donut-chart').getContext('2d');
+    donutChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: bgColors, borderWidth: 0, hoverOffset: 4 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '68%',
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ${c.label}: ${c.raw}` } } },
+        animation: { duration: 300 }
+      }
+    });
+  } else {
+    donutChart.data.labels = labels;
+    donutChart.data.datasets[0].data = data;
+    donutChart.data.datasets[0].backgroundColor = bgColors;
+    donutChart.update('none');
+  }
+
+  // Legend
+  const legend = document.getElementById('donut-legend');
+  legend.innerHTML = labels.map(k => `
+    <span style="display:flex;align-items:center;gap:4px">
+      <span style="width:8px;height:8px;border-radius:2px;background:${colors[k] || '#888'};flex-shrink:0"></span>
+      ${k.replace('_', ' ')} ${counts[k]}
+    </span>
+  `).join('');
+}
+
+// ============================================================
+//  RANGE INPUTS
+// ============================================================
+function updateRange(id, val) {
+  const el = document.getElementById('v-' + id);
+  if (id === 'success') el.textContent = val == 1 ? '1 (yes)' : '0 (no)';
+  else el.textContent = val;
+}
+
+// ============================================================
+//  CLOCK
+// ============================================================
+function updateClock() {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ============================================================
+//  LIVE FEED: auto normal traffic every few seconds
+// ============================================================
+setInterval(() => {
+  if (!state.running && Math.random() < 0.4) {
+    const event = ATTACK_CONFIGS.normal.generator(0);
+    const result = analyze(event);
+    processResult(event, result);
+  }
+}, 3000);
+</script>
+</body>
+</html>

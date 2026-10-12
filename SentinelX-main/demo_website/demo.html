@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SentinelX — Live Demo</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg:       #0d1117;
+  --surface:  #161b27;
+  --border:   #1e2535;
+  --text:     #e2e8f0;
+  --muted:    #64748b;
+  --blue:     #3b82f6;
+  --green:    #22c55e;
+  --red:      #ef4444;
+  --amber:    #f59e0b;
+  --purple:   #a855f7;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+       background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ── Top nav ── */
+nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px; height: 56px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+}
+.nav-logo { display: flex; align-items: center; gap: 8px;
+  font-size: 18px; font-weight: 700; color: #60a5fa; letter-spacing: -0.5px; }
+.nav-logo-icon { width: 26px; height: 26px; background: #1d4ed8;
+  border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800; color: #fff; }
+
+/* ── Tab bar ── */
+.tabs { display: flex; gap: 2px; background: var(--bg);
+  border-bottom: 1px solid var(--border); padding: 0 28px; overflow-x: auto; }
+.tab { padding: 14px 20px; font-size: 13px; font-weight: 500; cursor: pointer;
+  color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap;
+  transition: all 0.15s; user-select: none; }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+.tab-dot { display: inline-block; width: 6px; height: 6px;
+  border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+
+/* ── Panel ── */
+.panel { display: none; padding: 28px; max-width: 1200px; margin: 0 auto; }
+.panel.active { display: block; }
+
+/* ── Split layout ── */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.split-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+/* ── Cards ── */
+.card { background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden; }
+.card-head { padding: 14px 18px; border-bottom: 1px solid var(--border);
+  font-size: 13px; font-weight: 600; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: 0.05em; }
+.card-body { padding: 20px 18px; }
+
+/* ── Status badge ── */
+.status { display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
+.status-safe    { background: #052e16; color: #4ade80; border: 1px solid #14532d; }
+.status-threat  { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
+.status-warning { background: #422006; color: #fde68a; border: 1px solid #78350f; }
+.status-blocked { background: #1a0f0f; color: #fca5a5; border: 1px solid #3b1515; }
+.pulse-dot { width: 6px; height: 6px; border-radius: 50%; animation: pulse 2s infinite; }
+.pulse-green  { background: #4ade80; }
+.pulse-red    { background: #ef4444; }
+.pulse-amber  { background: #f59e0b; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* ── Demo website (banking) ── */
+.bank-site { background: #f8fafc; border-radius: 8px; overflow: hidden;
+  border: 1px solid #e2e8f0; color: #1e293b; font-family: Georgia, serif; }
+.bank-header { background: #1e3a5f; color: white; padding: 14px 20px;
+  display: flex; align-items: center; justify-content: space-between; }
+.bank-header h1 { font-size: 18px; font-weight: 700; }
+.bank-header span { font-size: 12px; opacity: 0.7; }
+.bank-body { padding: 28px; }
+.bank-form { max-width: 340px; margin: 0 auto; }
+.bank-form h2 { font-size: 20px; font-weight: 700; color: #1e3a5f;
+  margin-bottom: 6px; text-align: center; }
+.bank-form p { font-size: 13px; color: #64748b; text-align: center; margin-bottom: 20px; }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 12px; font-weight: 600;
+  color: #374151; margin-bottom: 5px; font-family: sans-serif; }
+.field input { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db;
+  border-radius: 6px; font-size: 14px; font-family: sans-serif;
+  background: #fff; color: #111; outline: none; }
+.field input:focus { border-color: #1e3a5f; box-shadow: 0 0 0 2px #1e3a5f22; }
+.bank-btn { width: 100%; padding: 11px; background: #1e3a5f;
+  color: white; border: none; border-radius: 6px; font-size: 14px;
+  font-weight: 600; cursor: pointer; font-family: sans-serif; }
+.bank-btn:hover { background: #16304f; }
+.bank-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Terminal / log ── */
+.terminal { background: #0a0e1a; border-radius: 8px; padding: 14px;
+  font-family: 'Courier New', monospace; font-size: 12px;
+  height: 260px; overflow-y: auto; border: 1px solid #1e2535; }
+.log-line { padding: 2px 0; line-height: 1.6; }
+.log-ok     { color: #4ade80; }
+.log-block  { color: #f87171; font-weight: 600; }
+.log-warn   { color: #fbbf24; }
+.log-info   { color: #60a5fa; }
+.log-dim    { color: #334155; }
+
+/* ── Attack buttons ── */
+.attack-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.atk-btn {
+  padding: 12px 14px; border-radius: 8px; border: 1px solid;
+  cursor: pointer; font-size: 13px; font-weight: 600;
+  text-align: left; transition: all 0.15s; background: transparent;
+  color: var(--text);
+}
+.atk-btn.brute   { border-color: #7f1d1d; background: #450a0a22; }
+.atk-btn.brute:hover   { background: #450a0a; }
+.atk-btn.sqli    { border-color: #4c1d95; background: #3b076422; }
+.atk-btn.sqli:hover    { background: #3b0764; }
+.atk-btn.ddos    { border-color: #78350f; background: #42200622; }
+.atk-btn.ddos:hover    { background: #422006; }
+.atk-btn.xss     { border-color: #134e4a; background: #0d2a2622; }
+.atk-btn.xss:hover     { background: #0d2a26; }
+.atk-btn.scan    { border-color: #312e81; background: #1e1b4b22; }
+.atk-btn.scan:hover    { background: #1e1b4b; }
+.atk-btn.cred    { border-color: #701a75; background: #4a044e22; }
+.atk-btn.cred:hover    { background: #4a044e; }
+.atk-btn .atk-name  { display: block; font-size: 13px; font-weight: 700; }
+.atk-btn .atk-desc  { display: block; font-size: 11px; font-weight: 400;
+  opacity: 0.6; margin-top: 2px; }
+
+/* ── Stats ── */
+.stat-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px;
+  margin-bottom: 20px; }
+.stat { background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 16px; }
+.stat .s-label { font-size: 11px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+.stat .s-val { font-size: 28px; font-weight: 700; line-height: 1; }
+.s-red    { color: var(--red); }
+.s-amber  { color: var(--amber); }
+.s-blue   { color: var(--blue); }
+.s-green  { color: var(--green); }
+.s-purple { color: var(--purple); }
+
+/* ── Feed table ── */
+.feed-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.feed-table th { font-size: 11px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+.feed-table td { padding: 10px 12px; border-bottom: 1px solid #0d1117; }
+.feed-table tr:last-child td { border-bottom: none; }
+.feed-table tr { transition: background 0.15s; }
+.feed-table tr:hover td { background: #1a2030; }
+.feed-table tr.new-row { animation: slideIn 0.4s ease; }
+@keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } }
+
+.badge { display: inline-block; font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 4px; }
+.b-brute   { background: #450a0a; color: #fca5a5; }
+.b-sqli    { background: #3b0764; color: #d8b4fe; }
+.b-xss     { background: #3b0764; color: #d8b4fe; }
+.b-ddos    { background: #422006; color: #fde68a; }
+.b-anomaly { background: #0c1a3b; color: #93c5fd; }
+.b-scanner { background: #1a2535; color: #94a3b8; }
+.b-cred    { background: #431407; color: #fdba74; }
+.b-path    { background: #3b0764; color: #d8b4fe; }
+
+.risk-wrap { display: flex; align-items: center; gap: 7px; }
+.risk-bar  { height: 5px; border-radius: 3px; background: #1e2535; width: 60px; }
+.risk-fill { height: 100%; border-radius: 3px; }
+
+/* ── Architecture flow ── */
+.arch-flow { display: flex; flex-direction: column; gap: 12px; }
+.arch-row { display: flex; align-items: center; gap: 10px; }
+.arch-box { background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 16px; flex: 1; }
+.arch-box .ab-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+.arch-box .ab-sub   { font-size: 11px; color: var(--muted); }
+.arch-file { font-size: 11px; font-family: monospace;
+  background: #0d1117; border: 1px solid #1e2535; border-radius: 4px;
+  padding: 2px 7px; color: #60a5fa; margin-top: 5px; display: inline-block; }
+.arch-arrow { color: var(--muted); font-size: 18px; flex-shrink: 0; }
+
+/* ── Progress ── */
+.progress-bar { background: #1e2535; border-radius: 3px; height: 6px;
+  overflow: hidden; margin-top: 6px; }
+.progress-fill { height: 100%; border-radius: 3px;
+  transition: width 0.3s ease; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0a0e1a; }
+::-webkit-scrollbar-thumb { background: #1e2535; border-radius: 3px; }
+
+/* ── Tooltip-style info box ── */
+.info-box { background: #0d1a2e; border: 1px solid #1e3a5f;
+  border-radius: 8px; padding: 12px 14px; font-size: 12px;
+  color: #93c5fd; line-height: 1.7; margin-top: 12px; }
+.info-box b { color: #60a5fa; font-size: 12px; }
+
+/* ── Response panel ── */
+.response-box { border-radius: 8px; padding: 14px 16px; font-size: 13px;
+  margin-top: 14px; display: none; }
+.response-box.safe    { background: #052e16; border: 1px solid #14532d; color: #4ade80; }
+.response-box.blocked { background: #450a0a; border: 1px solid #7f1d1d; color: #fca5a5; }
+.response-box.warning { background: #422006; border: 1px solid #78350f; color: #fde68a; }
+.response-box b { display: block; font-size: 15px; margin-bottom: 4px; }
+
+button { font-family: inherit; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <div class="nav-logo-icon">S</div>
+    SentinelX Demo
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
+    <span class="pulse-dot pulse-green" style="display:inline-block"></span>
+    <span style="color:#4ade80;font-size:12px;font-weight:600;">System active</span>
+  </div>
+</nav>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('demo')">
+    <span class="tab-dot" style="background:#4ade80"></span>Live Login Demo
+  </div>
+  <div class="tab" onclick="showTab('attacks')">
+    <span class="tab-dot" style="background:#ef4444"></span>Attack Simulator
+  </div>
+  <div class="tab" onclick="showTab('dashboard')">
+    <span class="tab-dot" style="background:#3b82f6"></span>Admin Dashboard
+  </div>
+  <div class="tab" onclick="showTab('architecture')">
+    <span class="tab-dot" style="background:#a855f7"></span>How It Works
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     TAB 1: LIVE LOGIN DEMO
+══════════════════════════════════════════════════ -->
+<div id="tab-demo" class="panel active">
+  <div style="margin-bottom:18px;">
+    <h2 style="font-size:20px;font-weight:700;margin-bottom:4px;">SafeBank — Protected by SentinelX</h2>
+    <p style="color:var(--muted);font-size:13px;">This is a demo banking login page. SentinelX sits in front of it. Try logging in — with correct credentials, wrong ones, or use the cheat-sheet below.</p>
+  </div>
+
+  <div class="split">
+    <!-- Left: the "real" website being protected -->
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">
+        Protected website
+      </div>
+      <div class="bank-site">
+        <div class="bank-header">
+          <h1>SafeBank Online</h1>
+          <span>Secured by SentinelX</span>
+        </div>
+        <div class="bank-body">
+          <div class="bank-form">
+            <h2>Sign in</h2>
+            <p>Enter your credentials to access your account</p>
+            <div class="field">
+              <label>Username</label>
+              <input id="login-user" type="text" placeholder="e.g. admin" autocomplete="off">
+            </div>
+            <div class="field">
+              <label>Password</label>
+              <input id="login-pass" type="password" placeholder="password" autocomplete="off">
+            </div>
+            <button class="bank-btn" onclick="tryLogin()">Sign in</button>
+
+            <div id="login-response" class="response-box"></div>
+
+            <div class="info-box" style="margin-top:18px;">
+              <b>Test credentials:</b>
+              username <code style="color:#fbbf24">admin</code> / password <code style="color:#fbbf24">admin123</code><br>
+              username <code style="color:#fbbf24">alice</code> / password <code style="color:#fbbf24">password1</code><br>
+              <span style="opacity:.6">Any other username or wrong password = failed login (try 6 times to trigger brute-force block)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: SentinelX live log -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">
+          SentinelX monitor
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span id="sentinel-status" class="status status-safe">
+            <span class="pulse-dot pulse-green"></span>All clear
+          </span>
+          <button onclick="clearLog()" style="background:#1e2535;border:1px solid #2d3a50;border-radius:6px;color:#64748b;font-size:11px;padding:4px 10px;cursor:pointer;">Clear</button>
+        </div>
+      </div>
+      <div class="terminal" id="sentinel-log">
+        <div class="log-dim">SentinelX v1.0 — monitoring started</div>
+        <div class="log-dim">Waiting for login events...</div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Session stats</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+          <div class="stat" style="padding:10px 12px;">
+            <div class="s-label">Logins</div>
+            <div class="s-val s-blue" id="s-logins">0</div>
+          </div>
+          <div class="stat" style="padding:10px 12px;">
+            <div class="s-label">Failed</div>
+            <div class="s-val s-amber" id="s-failed">0</div>
+          </div>
+          <div class="stat" style="padding:10px 12px;">
+            <div class="s-label">Blocked</div>
+            <div class="s-val s-red" id="s-blocked">0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     TAB 2: ATTACK SIMULATOR
+══════════════════════════════════════════════════ -->
+<div id="tab-attacks" class="panel">
+  <div style="margin-bottom:18px;">
+    <h2 style="font-size:20px;font-weight:700;margin-bottom:4px;">Attack simulator</h2>
+    <p style="color:var(--muted);font-size:13px;">Click any attack to simulate it against the demo app. Watch how SentinelX detects and stops each one in real time.</p>
+  </div>
+
+  <div class="split">
+    <div>
+      <div class="card-head" style="background:var(--surface);border:1px solid var(--border);border-radius:10px 10px 0 0;padding:12px 16px;">Choose an attack type</div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;padding:16px;">
+        <div class="attack-grid">
+          <button class="atk-btn brute" onclick="runAttack('brute')">
+            <span class="atk-name">Brute force</span>
+            <span class="atk-desc">8 rapid wrong passwords on one account</span>
+          </button>
+          <button class="atk-btn sqli" onclick="runAttack('sqli')">
+            <span class="atk-name">SQL injection</span>
+            <span class="atk-desc">Inject malicious SQL in username field</span>
+          </button>
+          <button class="atk-btn ddos" onclick="runAttack('ddos')">
+            <span class="atk-name">DDoS flood</span>
+            <span class="atk-desc">100+ rapid requests from one IP</span>
+          </button>
+          <button class="atk-btn xss" onclick="runAttack('xss')">
+            <span class="atk-name">XSS attack</span>
+            <span class="atk-desc">Inject script tags in login form</span>
+          </button>
+          <button class="atk-btn scan" onclick="runAttack('scanner')">
+            <span class="atk-name">Scanner tool</span>
+            <span class="atk-desc">Simulate sqlmap/nikto scanning tool</span>
+          </button>
+          <button class="atk-btn cred" onclick="runAttack('credential')">
+            <span class="atk-name">Credential stuffing</span>
+            <span class="atk-desc">Try 12 different usernames, same IP</span>
+          </button>
+        </div>
+        <div id="attack-progress" style="display:none;margin-top:16px;">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:6px;" id="attack-label">Running attack...</div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="attack-bar" style="width:0%;background:var(--red)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card-head" style="background:var(--surface);border:1px solid var(--border);border-radius:10px 10px 0 0;padding:12px 16px;">Attack log</div>
+      <div class="terminal" id="attack-log" style="border-radius:0 0 10px 10px;border-top:none;height:300px;">
+        <div class="log-dim">Select an attack type to begin simulation...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary after attack -->
+  <div id="attack-summary" style="display:none;margin-top:20px;">
+    <div class="split-3">
+      <div class="stat">
+        <div class="s-label">Requests sent</div>
+        <div class="s-val s-blue" id="sum-sent">0</div>
+      </div>
+      <div class="stat">
+        <div class="s-label">Blocked by SentinelX</div>
+        <div class="s-val s-red" id="sum-blocked">0</div>
+      </div>
+      <div class="stat">
+        <div class="s-label">Block rate</div>
+        <div class="s-val s-green" id="sum-rate">0%</div>
+      </div>
+    </div>
+    <div class="info-box" id="sum-explain" style="margin-top:12px;"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     TAB 3: ADMIN DASHBOARD
+══════════════════════════════════════════════════ -->
+<div id="tab-dashboard" class="panel">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+    <div>
+      <h2 style="font-size:20px;font-weight:700;margin-bottom:4px;">Admin dashboard</h2>
+      <p style="color:var(--muted);font-size:13px;">Real-time view of all threats detected across the session.</p>
+    </div>
+    <button onclick="clearDashboard()" style="background:#1e2535;border:1px solid #2d3a50;border-radius:8px;color:#94a3b8;font-size:13px;padding:8px 16px;cursor:pointer;">Clear all</button>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat">
+      <div class="s-label">Total threats</div>
+      <div class="s-val s-red" id="d-threats">0</div>
+    </div>
+    <div class="stat">
+      <div class="s-label">Blocked IPs</div>
+      <div class="s-val s-amber" id="d-ips">0</div>
+    </div>
+    <div class="stat">
+      <div class="s-label">Brute force</div>
+      <div class="s-val s-red" id="d-brute">0</div>
+    </div>
+    <div class="stat">
+      <div class="s-label">Injections</div>
+      <div class="s-val s-purple" id="d-inject">0</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">Live threat feed</div>
+    <div style="overflow-x:auto;">
+      <table class="feed-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Username</th>
+            <th>IP address</th>
+            <th>Attack type</th>
+            <th>Risk score</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="threat-feed">
+          <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px;">
+            No threats detected yet — run attacks or try the login demo
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div style="margin-top:16px;" class="card">
+    <div class="card-head">Blocked IP addresses</div>
+    <div class="card-body" id="blocked-ip-list" style="display:flex;flex-wrap:wrap;gap:10px;min-height:50px;">
+      <span style="color:var(--muted);font-size:13px;">None blocked yet</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     TAB 4: HOW IT WORKS
+══════════════════════════════════════════════════ -->
+<div id="tab-architecture" class="panel">
+  <h2 style="font-size:20px;font-weight:700;margin-bottom:4px;">How SentinelX works</h2>
+  <p style="color:var(--muted);font-size:13px;margin-bottom:24px;">Every HTTP request passes through these layers in order. Here's what happens step by step.</p>
+
+  <div class="split">
+    <div class="arch-flow">
+
+      <div class="arch-row">
+        <div class="arch-box" style="border-color:#1e3a5f;background:#0d1a2e;">
+          <div class="ab-title" style="color:#60a5fa">1 — HTTP request arrives</div>
+          <div class="ab-sub">User submits login form → browser sends POST /api/auth/login</div>
+        </div>
+      </div>
+      <div style="text-align:center;color:var(--muted);font-size:20px;">↓</div>
+
+      <div class="arch-row">
+        <div class="arch-box" style="border-color:#7f1d1d;background:#1a0808;">
+          <div class="ab-title" style="color:#f87171">2 — SentinelFilter (first gate)</div>
+          <div class="ab-sub">Runs before any controller. Checks: Is IP blocked? Scan for SQLi/XSS/path traversal. Block scanner user-agents. Count requests (rate limit).</div>
+          <span class="arch-file">SentinelFilter.java</span>
+          <div style="font-size:11px;color:#ef4444;margin-top:6px;">If threat found → return HTTP 403 immediately. Controller never runs.</div>
+        </div>
+      </div>
+      <div style="text-align:center;color:var(--muted);font-size:20px;">↓</div>
+
+      <div class="arch-row">
+        <div class="arch-box" style="border-color:#78350f;background:#1a0d04;">
+          <div class="ab-title" style="color:#fbbf24">3 — AuthController receives request</div>
+          <div class="ab-sub">Checks credentials against user database. Saves the login event (success or failure) to MySQL.</div>
+          <span class="arch-file">AuthController.java</span>
+          <span class="arch-file" style="margin-left:6px;">LoginEvent.java</span>
+        </div>
+      </div>
+      <div style="text-align:center;color:var(--muted);font-size:20px;">↓</div>
+
+      <div class="arch-row">
+        <div class="arch-box" style="border-color:#134e4a;background:#041a18;">
+          <div class="ab-title" style="color:#34d399">4 — DetectionService analyses</div>
+          <div class="ab-sub">Runs 4 rules: brute force by user, credential stuffing, brute force by IP, rate limit. Then calls Python ML service for anomaly score. Returns risk score 0–100.</div>
+          <span class="arch-file">DetectionService.java</span>
+          <span class="arch-file" style="margin-left:6px;">model.py (Python)</span>
+        </div>
+      </div>
+      <div style="text-align:center;color:var(--muted);font-size:20px;">↓</div>
+
+      <div class="arch-row">
+        <div class="arch-box" style="border-color:#4c1d95;background:#150a2a;">
+          <div class="ab-title" style="color:#a78bfa">5 — ActionService responds</div>
+          <div class="ab-sub">Score ≥ 80 → block IP or lock account. Score ≥ 50 → create alert. Saves ThreatAlert to DB.</div>
+          <span class="arch-file">ActionService.java</span>
+          <span class="arch-file" style="margin-left:6px;">ThreatAlert.java</span>
+        </div>
+      </div>
+      <div style="text-align:center;color:var(--muted);font-size:20px;">↓</div>
+
+      <div class="arch-row">
+        <div class="arch-box" style="border-color:#1e3a5f;background:#0d1a2e;">
+          <div class="ab-title" style="color:#60a5fa">6 — Dashboard updates</div>
+          <div class="ab-sub">DashboardController serves /api/dashboard/* endpoints. The HTML dashboard polls every 5 seconds and shows live threat data.</div>
+          <span class="arch-file">DashboardController.java</span>
+          <span class="arch-file" style="margin-left:6px;">index.html</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-head">Detection rules explained</div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:14px;">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#f87171;margin-bottom:4px;">Brute force rule</div>
+            <div style="font-size:12px;color:var(--muted);">Count failed logins for username OR from IP in the last 5 minutes. If ≥ 5 failures → risk score 90, lock account.</div>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#fdba74;margin-bottom:4px;">Credential stuffing rule</div>
+            <div style="font-size:12px;color:var(--muted);">Count distinct usernames tried from same IP in 5 minutes. If ≥ 10 different usernames → risk score 85, block IP.</div>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#fde68a;margin-bottom:4px;">Rate limit rule</div>
+            <div style="font-size:12px;color:var(--muted);">In-memory counter per IP, resets every minute. If > 100 requests/min → risk score 75.</div>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#d8b4fe;margin-bottom:4px;">Injection scan (SentinelFilter)</div>
+            <div style="font-size:12px;color:var(--muted);">Regex patterns scan all request parameters BEFORE the controller runs. Catches SQLi, XSS, path traversal. Returns 403 instantly.</div>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#93c5fd;margin-bottom:4px;">ML anomaly detection</div>
+            <div style="font-size:12px;color:var(--muted);">Isolation Forest trained on normal behaviour. Features: failed_logins, request_rate, hour_of_day, login_success. Returns anomaly score 0–100.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">Risk score → action mapping</div>
+        <div class="card-body">
+          <table style="width:100%;font-size:12px;border-collapse:collapse;">
+            <tr>
+              <td style="padding:8px 0;border-bottom:1px solid var(--border);color:var(--red);font-weight:600;">Score ≥ 80</td>
+              <td style="padding:8px 0;border-bottom:1px solid var(--border);color:var(--muted);">Block IP (24 hrs) or lock account immediately</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;border-bottom:1px solid var(--border);color:var(--amber);font-weight:600;">Score 50–79</td>
+              <td style="padding:8px 0;border-bottom:1px solid var(--border);color:var(--muted);">Create alert — shown on dashboard, no block yet</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;color:var(--green);font-weight:600;">Score 0–49</td>
+              <td style="padding:8px 0;color:var(--muted);">Normal — request passes through</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══ Global state ════════════════════════════════════════════
+const state = {
+  logins: 0, failed: 0, blocked: 0,
+  failedByIp: {},  // ip → count
+  threats: [],
+  blockedIps: new Set(),
+  dThreats: 0, dIps: 0, dBrute: 0, dInject: 0,
+};
+
+// Simulated "server" — in demo mode everything runs in JS
+// In real deployment this would call localhost:8080
+
+const MY_IP = "192.168.1.1";
+
+// ═══ Tab switching ════════════════════════════════════════════
+function showTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('.tab')[
+    ['demo','attacks','dashboard','architecture'].indexOf(name)
+  ].classList.add('active');
+  if (name === 'dashboard') refreshDashboard();
+}
+
+// ═══ Logging helpers ══════════════════════════════════════════
+function addLog(targetId, text, cls='log-info') {
+  const el = document.getElementById(targetId);
+  const div = document.createElement('div');
+  div.className = 'log-line ' + cls;
+  div.textContent = '[' + new Date().toLocaleTimeString() + '] ' + text;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearLog() {
+  document.getElementById('sentinel-log').innerHTML =
+    '<div class="log-dim">Log cleared.</div>';
+}
+
+// ═══ Login Demo logic ═════════════════════════════════════════
+const VALID = { admin: 'admin123', alice: 'password1', bob: 'secret99' };
+
+function tryLogin() {
+  const user = document.getElementById('login-user').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const ip = MY_IP;
+  const resp = document.getElementById('login-response');
+
+  if (!user) { resp.style.display='block'; resp.className='response-box warning';
+    resp.innerHTML='<b>Enter a username</b>'; return; }
+
+  state.logins++;
+  document.getElementById('s-logins').textContent = state.logins;
+
+  // ── Check 1: SQLi / XSS pattern ──────────────────────────
+  const sqliPat = /union.*select|select.*from|drop.*table|or\s+1\s*=\s*1|'.*--/i;
+  const xssPat  = /<script|onerror=|javascript:|eval\s*\(/i;
+  if (sqliPat.test(user) || xssPat.test(user)) {
+    addLog('sentinel-log', 'INJECTION attempt detected from ' + ip + ' — payload: ' + user.slice(0,30), 'log-block');
+    addLog('sentinel-log', 'SentinelFilter → HTTP 403 returned. Controller not reached.', 'log-block');
+    setStatus('threat');
+    recordThreat(user, ip, 'INJECTION', 85, 'IP_BLOCKED');
+    state.blocked++;
+    document.getElementById('s-blocked').textContent = state.blocked;
+    resp.style.display='block'; resp.className='response-box blocked';
+    resp.innerHTML='<b>403 — Blocked by SentinelX</b>Injection pattern detected in request.';
+    return;
+  }
+
+  // ── Check 2: Is IP blocked? ───────────────────────────────
+  if (state.blockedIps.has(ip + ':' + user)) {
+    addLog('sentinel-log', 'Blocked account ' + user + ' tried login — denied', 'log-block');
+    resp.style.display='block'; resp.className='response-box blocked';
+    resp.innerHTML='<b>423 — Account locked</b>Too many failed attempts. Try again later.';
+    return;
+  }
+
+  // ── Check 3: Credential check ────────────────────────────
+  const success = VALID[user] === pass;
+
+  if (!success) {
+    state.failed++;
+    document.getElementById('s-failed').textContent = state.failed;
+    state.failedByIp[user] = (state.failedByIp[user] || 0) + 1;
+
+    const attempts = state.failedByIp[user];
+    addLog('sentinel-log', 'Failed login: user=' + user + ' ip=' + ip + ' (attempt ' + attempts + '/5)', 'log-warn');
+
+    if (attempts >= 5) {
+      addLog('sentinel-log', 'BRUTE FORCE detected — ' + attempts + ' failures for ' + user, 'log-block');
+      addLog('sentinel-log', 'ActionService → Account locked, alert created. Risk score: 90', 'log-block');
+      recordThreat(user, ip, 'BRUTE_FORCE', 90, 'ACCOUNT_LOCKED');
+      state.blockedIps.add(ip + ':' + user);
+      state.blocked++;
+      document.getElementById('s-blocked').textContent = state.blocked;
+      setStatus('threat');
+      resp.style.display='block'; resp.className='response-box blocked';
+      resp.innerHTML='<b>423 — Account locked by SentinelX</b>Brute force detected. Account locked for 30 minutes.';
+    } else {
+      setStatus(attempts >= 3 ? 'warning' : 'safe');
+      resp.style.display='block'; resp.className='response-box warning';
+      resp.innerHTML='<b>401 — Invalid credentials</b>Wrong username or password. (' + attempts + ' of 5 attempts used)';
+    }
+  } else {
+    addLog('sentinel-log', 'Successful login: user=' + user + ' ip=' + ip, 'log-ok');
+    state.failedByIp[user] = 0;
+    setStatus('safe');
+    resp.style.display='block'; resp.className='response-box safe';
+    resp.innerHTML='<b>200 — Login successful</b>Welcome back, ' + user + '!';
+  }
+}
+
+function setStatus(type) {
+  const el = document.getElementById('sentinel-status');
+  const map = {
+    safe:    ['status-safe',    'pulse-green', 'All clear'],
+    threat:  ['status-threat',  'pulse-red',   'Threat detected'],
+    warning: ['status-warning', 'pulse-amber', 'Suspicious activity'],
+    blocked: ['status-blocked', 'pulse-red',   'IP blocked'],
+  };
+  const [cls, dotCls, label] = map[type];
+  el.className = 'status ' + cls;
+  el.innerHTML = '<span class="pulse-dot ' + dotCls + '"></span>' + label;
+}
+
+// ═══ Attack simulator ═════════════════════════════════════════
+const ATTACK_DEFS = {
+  brute: {
+    label: 'Brute force attack — trying 8 passwords on admin account',
+    steps: [
+      {msg:'Attempt 1: password=123456',       blocked:false, delay:300},
+      {msg:'Attempt 2: password=password',     blocked:false, delay:300},
+      {msg:'Attempt 3: password=qwerty',       blocked:false, delay:300},
+      {msg:'Attempt 4: password=admin',        blocked:false, delay:300},
+      {msg:'Attempt 5: password=letmein',      blocked:false, delay:300},
+      {msg:'BRUTE FORCE threshold hit! (5 failures) → Account LOCKED, risk score 90', blocked:true, delay:400},
+      {msg:'Attempt 6: password=welcome — 423 Account Locked returned', blocked:true, delay:300},
+      {msg:'Attempt 7: password=dragon — 423 Account Locked returned',  blocked:true, delay:300},
+    ],
+    sent:8, blocked:3,
+    type:'BRUTE_FORCE', score:90, action:'ACCOUNT_LOCKED',
+    explain:'<b>How it was stopped:</b> SentinelX counted 5 failed logins for "admin" within the 5-minute window. The rule threshold was hit on attempt 5. The account was locked and all further attempts returned 423 immediately.'
+  },
+  sqli: {
+    label: "SQL injection attack — injecting malicious SQL into login fields",
+    steps: [
+      {msg:"Payload: username=' OR '1'='1",       blocked:true, delay:400},
+      {msg:"SentinelFilter → SQL pattern matched → HTTP 403. Controller not reached.", blocked:true, delay:200},
+      {msg:"Payload: username=admin' --",           blocked:true, delay:400},
+      {msg:"SentinelFilter → SQL pattern matched → HTTP 403", blocked:true, delay:200},
+      {msg:"Payload: '; DROP TABLE users; --",      blocked:true, delay:400},
+      {msg:"SentinelFilter → SQL pattern matched → HTTP 403", blocked:true, delay:200},
+      {msg:"Payload: ' UNION SELECT * FROM users --", blocked:true, delay:400},
+      {msg:"SentinelFilter → SQL pattern matched → HTTP 403", blocked:true, delay:200},
+    ],
+    sent:4, blocked:4,
+    type:'INJECTION', score:85, action:'IP_BLOCKED',
+    explain:'<b>How it was stopped:</b> SentinelFilter runs a regex scan on all request parameters before the controller. Every SQL keyword pattern (UNION SELECT, OR 1=1, DROP TABLE) was matched and the request was rejected with 403. The database was never touched.'
+  },
+  ddos: {
+    label: "DDoS flood — 100 rapid requests from same IP",
+    steps: [
+      {msg:"Sending 100 requests from IP 203.0.113.99...",   blocked:false, delay:200},
+      {msg:"Requests 1–30: rate counter = 30/100",           blocked:false, delay:300},
+      {msg:"Requests 31–70: rate counter = 70/100",          blocked:false, delay:300},
+      {msg:"Requests 71–100: rate counter = 100/100",        blocked:false, delay:300},
+      {msg:"RATE LIMIT hit! 100 req/min from 203.0.113.99", blocked:true,  delay:400},
+      {msg:"ActionService → IP flagged, risk score 75, alert created", blocked:true, delay:300},
+      {msg:"All further requests from this IP → throttled",  blocked:true,  delay:300},
+    ],
+    sent:100, blocked:30,
+    type:'RATE_LIMIT', score:75, action:'ALERT_ONLY',
+    explain:'<b>How it was stopped:</b> SentinelX maintains an in-memory request counter per IP, reset every minute. When the counter exceeded 100 req/min from the attacker\'s IP, the rate limit rule triggered with a risk score of 75, creating an alert in the dashboard.'
+  },
+  xss: {
+    label: "XSS attack — injecting script tags in login form",
+    steps: [
+      {msg:"Payload: <script>alert('XSS')</script>",        blocked:true, delay:400},
+      {msg:"SentinelFilter → XSS pattern matched → HTTP 403", blocked:true, delay:200},
+      {msg:"Payload: <img onerror=alert(1) src=x>",         blocked:true, delay:400},
+      {msg:"SentinelFilter → XSS pattern matched → HTTP 403", blocked:true, delay:200},
+      {msg:"Payload: javascript:void(document.cookie)",     blocked:true, delay:400},
+      {msg:"SentinelFilter → XSS pattern matched → HTTP 403", blocked:true, delay:200},
+    ],
+    sent:3, blocked:3,
+    type:'INJECTION', score:85, action:'IP_BLOCKED',
+    explain:'<b>How it was stopped:</b> SentinelFilter\'s XSS regex matches &lt;script&gt; tags, onerror handlers, javascript: protocol, and other common XSS vectors. All three payloads were caught and rejected before reaching any controller or database.'
+  },
+  scanner: {
+    label: "Scanner detection — sqlmap / nikto / dirbuster user-agents",
+    steps: [
+      {msg:"Request from User-Agent: sqlmap/1.7.8",  blocked:true, delay:400},
+      {msg:"SentinelFilter → known scanner UA → IP blocked immediately", blocked:true, delay:300},
+      {msg:"Request from User-Agent: Nikto/2.1.6",  blocked:true, delay:400},
+      {msg:"IP already blocked → 403 returned",      blocked:true, delay:200},
+      {msg:"Request from User-Agent: DirBuster-1.0", blocked:true, delay:400},
+      {msg:"IP already blocked → 403 returned",      blocked:true, delay:200},
+    ],
+    sent:3, blocked:3,
+    type:'SCANNER', score:80, action:'IP_BLOCKED',
+    explain:'<b>How it was stopped:</b> SentinelFilter checks the User-Agent header of every request against a list of known attack tool signatures (sqlmap, nikto, dirbuster, hydra, masscan, etc.). The first match immediately blocks the IP — all subsequent requests from that IP are rejected without inspection.'
+  },
+  credential: {
+    label: "Credential stuffing — 12 different usernames, same IP",
+    steps: [
+      {msg:"Trying john:password → 401",  blocked:false, delay:200},
+      {msg:"Trying sarah:password → 401", blocked:false, delay:200},
+      {msg:"Trying mike:password → 401",  blocked:false, delay:200},
+      {msg:"Trying emma:password → 401",  blocked:false, delay:200},
+      {msg:"Trying david:password → 401", blocked:false, delay:200},
+      {msg:"Trying lisa:password → 401",  blocked:false, delay:200},
+      {msg:"Trying tom:password → 401",   blocked:false, delay:200},
+      {msg:"Trying kate:password → 401",  blocked:false, delay:200},
+      {msg:"Trying james:password → 401", blocked:false, delay:200},
+      {msg:"Trying anna:password → 401",  blocked:false, delay:200},
+      {msg:"10 distinct usernames from same IP — CREDENTIAL STUFFING detected!", blocked:true, delay:400},
+      {msg:"ActionService → IP blocked, risk score 85", blocked:true, delay:300},
+    ],
+    sent:12, blocked:2,
+    type:'CRED_STUFF', score:85, action:'IP_BLOCKED',
+    explain:'<b>How it was stopped:</b> DetectionService queries the DB for COUNT(DISTINCT username) from the same IP in the last 5 minutes. When this reached 10 distinct usernames, the credential stuffing rule fired with a risk score of 85 and the IP was blocked for 24 hours.'
+  }
+};
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function runAttack(type) {
+  const def = ATTACK_DEFS[type];
+  const log = document.getElementById('attack-log');
+  const prog = document.getElementById('attack-progress');
+  const bar  = document.getElementById('attack-bar');
+  const lbl  = document.getElementById('attack-label');
+  const sum  = document.getElementById('attack-summary');
+
+  log.innerHTML = '';
+  sum.style.display = 'none';
+  prog.style.display = 'block';
+  lbl.textContent = def.label;
+
+  addLog('attack-log', '=== ' + def.label + ' ===', 'log-info');
+  addLog('attack-log', 'Source IP: 203.0.113.99   Target: POST /api/auth/login', 'log-dim');
+
+  for (let i = 0; i < def.steps.length; i++) {
+    const step = def.steps[i];
+    bar.style.width = ((i+1)/def.steps.length*100) + '%';
+    addLog('attack-log', step.msg, step.blocked ? 'log-block' : 'log-warn');
+    await sleep(step.delay);
+  }
+
+  bar.style.width = '100%';
+  addLog('attack-log', '=== Attack complete ===', 'log-dim');
+
+  // Record threat to dashboard
+  recordThreat('attacker', '203.0.113.99', def.type, def.score, def.action);
+
+  // Show summary
+  document.getElementById('sum-sent').textContent    = def.sent;
+  document.getElementById('sum-blocked').textContent = def.blocked;
+  document.getElementById('sum-rate').textContent    = Math.round(def.blocked/def.sent*100) + '%';
+  document.getElementById('sum-explain').innerHTML   = def.explain;
+  sum.style.display = 'block';
+
+  setTimeout(() => { prog.style.display = 'none'; bar.style.width = '0%'; }, 1500);
+}
+
+// ═══ Shared threat recording ══════════════════════════════════
+function recordThreat(username, ip, type, score, action) {
+  const threat = { username, ip, type, score, action, time: new Date() };
+  state.threats.unshift(threat);
+
+  state.dThreats++;
+  if (action === 'IP_BLOCKED') { state.dIps++; state.blockedIps.add(ip); }
+  if (type === 'BRUTE_FORCE' || type === 'CRED_STUFF') state.dBrute++;
+  if (type === 'INJECTION' || type === 'SCANNER') state.dInject++;
+
+  refreshDashboard();
+}
+
+// ═══ Dashboard refresh ════════════════════════════════════════
+function refreshDashboard() {
+  document.getElementById('d-threats').textContent = state.dThreats;
+  document.getElementById('d-ips').textContent     = state.dIps;
+  document.getElementById('d-brute').textContent   = state.dBrute;
+  document.getElementById('d-inject').textContent  = state.dInject;
+
+  const tbody = document.getElementById('threat-feed');
+  if (state.threats.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px;">No threats yet</td></tr>';
+    return;
+  }
+
+  const typeMap = {
+    BRUTE_FORCE: ['b-brute','Brute force'],
+    CRED_STUFF:  ['b-cred','Cred stuffing'],
+    RATE_LIMIT:  ['b-ddos','Rate limit'],
+    INJECTION:   ['b-sqli','Injection'],
+    ANOMALY:     ['b-anomaly','Anomaly'],
+    SCANNER:     ['b-scanner','Scanner'],
+    PATH_TRAVERSAL: ['b-path','Path traversal'],
+  };
+
+  tbody.innerHTML = state.threats.slice(0,20).map((t, i) => {
+    const [bcls, blabel] = typeMap[t.type] || ['b-scanner', t.type];
+    const color = t.score >= 80 ? '#ef4444' : t.score >= 50 ? '#f59e0b' : '#4ade80';
+    const actionCls = t.action === 'IP_BLOCKED' ? 'style="color:#f87171;font-weight:600"'
+                    : t.action === 'ACCOUNT_LOCKED' ? 'style="color:#fb923c;font-weight:600"'
+                    : 'style="color:#fbbf24"';
+    return `<tr class="${i===0?'new-row':''}">
+      <td style="font-family:monospace;color:var(--muted);font-size:12px">${t.time.toLocaleTimeString()}</td>
+      <td>${t.username}</td>
+      <td style="font-family:monospace;font-size:12px">${t.ip}</td>
+      <td><span class="badge ${bcls}">${blabel}</span></td>
+      <td>
+        <div class="risk-wrap">
+          <span style="color:${color};font-weight:600;font-size:13px">${t.score}</span>
+          <div class="risk-bar"><div class="risk-fill" style="width:${t.score}%;background:${color}"></div></div>
+        </div>
+      </td>
+      <td ${actionCls}>${t.action.replace('_',' ')}</td>
+    </tr>`;
+  }).join('');
+
+  // Blocked IPs
+  const blist = document.getElementById('blocked-ip-list');
+  const ips = [...state.blockedIps];
+  if (ips.length === 0) {
+    blist.innerHTML = '<span style="color:var(--muted);font-size:13px;">None blocked yet</span>';
+  } else {
+    blist.innerHTML = ips.map(ip =>
+      `<div style="display:inline-flex;align-items:center;gap:8px;background:#1a0f0f;border:1px solid #3b1515;border-radius:6px;padding:6px 12px;font-size:13px;font-family:monospace;color:#fca5a5;">${ip}</div>`
+    ).join('');
+  }
+}
+
+function clearDashboard() {
+  state.threats = [];
+  state.blockedIps.clear();
+  state.dThreats = state.dIps = state.dBrute = state.dInject = 0;
+  refreshDashboard();
+}
+</script>
+</body>
+</html>

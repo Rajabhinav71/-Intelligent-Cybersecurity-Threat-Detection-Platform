@@ -1,0 +1,16 @@
+com\sentinelx\filter\SentinelFilter$CachedBodyHttpServletRequest.class
+com\sentinelx\controller\DashboardController.class
+com\sentinelx\model\ThreatAlert.class
+com\sentinelx\service\ActionService.class
+com\sentinelx\filter\SentinelFilter$CachedBodyHttpServletRequest$1.class
+com\sentinelx\model\BlockedIP.class
+com\sentinelx\service\DetectionService.class
+com\sentinelx\controller\AuthController.class
+com\sentinelx\model\LoginEvent.class
+com\sentinelx\repository\LoginEventRepository.class
+com\sentinelx\filter\SentinelFilter.class
+com\sentinelx\config\AppConfig.class
+com\sentinelx\repository\BlockedIPRepository.class
+com\sentinelx\SentinelXApplication.class
+com\sentinelx\repository\ThreatAlertRepository.class
+com\sentinelx\service\DetectionService$DetectionResult.class
